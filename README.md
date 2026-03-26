@@ -99,6 +99,39 @@ Ekranda koca bir JSON listesi görüyorsan başardın demektir! 🎉
 
 ---
 
+## 🎨 7. Kendi Haritana Bağla (Leaflet.js Örneği)
+
+API'den gelen veriyi web üzerinde görmek çok kolay! Masaüstüne `index.html` diye bir dosya oluştur ve içine şu kodları yapıştır:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Geojsonserver Haritası</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <style>#map { height: 600px; }</style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        var map = L.map('map').setView([39.9, 32.8], 10); // Ankara merkezi
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        // Kendi sunucundan veriyi çek!
+        fetch('http://localhost:8080/geojson/getPoints')
+            .then(res => res.json())
+            .then(data => {
+                L.geoJSON(data).addTo(map);
+            });
+    </script>
+</body>
+</html>
+```
+
+---
+
 ## ✒️ Yazar ve Destek
 
 **Bahattin Yunus Çetin**  
