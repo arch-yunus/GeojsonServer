@@ -1,126 +1,111 @@
-# 🌍 GeojsonServer: High-Performance Spatial Data Engine
+# 🌍 GeojsonServer: A-'dan Z-'ye Mekânsal Veri Sunucusu Rehberi
 
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-2.3.3-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![PostGIS](https://img.shields.io/badge/PostGIS-Spatial-0064a5?style=for-the-badge&logo=postgresql&logoColor=white)](https://postgis.net/)
 [![Java](https://img.shields.io/badge/Java-11-ED8B00?style=for-the-badge&logo=java&logoColor=white)](https://www.oracle.com/java/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-> **Mekânsal Veri Yönetiminde Yeni Nesil Mimari.** Post-AI dünyasında verinin coğrafi bağlamı hiç olmadığı kadar kritik. **GeojsonServer**, karmaşık spatial query'leri milisaniyeler içinde işleyen, yüksek performanslı bir Spring Boot çözümüdür.
-
----
-
-## 🚀 Proje Vizyonu
-
-Bu proje, sadece veri sunan bir API değil; **PostGIS**, **GeoJSON** ve **MVT (Mapbox Vector Tiles)** teknolojilerini bir araya getiren hibrit bir mekânsal veri motorudur. Büyük veri setlerini (Big Data) harita üzerinde akıcı bir şekilde görselleştirmek için optimize edilmiştir.
-
-### ✨ Öne Çıkan Özellikler
-
-- 🛰️ **Native PostGIS Entegrasyonu**: Veritabanı seviyesinde `ST_AsGeoJSON` ve `ST_AsMVT` fonksiyonları ile maksimum hız.
-- 📦 **MVT (Vector Tile) Desteği**: Harita altlıklarında binlerce noktayı tile tabanlı, hızlı yükleme ile sunma yeteneği.
-- 🗺️ **Çok Katmanlı Destek**: Nokta (Point), Çizgi (LineString) ve Poligon (Polygon) geometrilerini default olarak destekler.
-- 🔍 **Gelişmiş Spatial Query**: "Hangi noktalar bu poligonun içinde?" (Spatial Join) gibi karmaşık sorgular için hazır API uçları.
-- ⚡ **Minimalist & Güçlü**: JDBC Template kullanarak Hibernate overhead'inden kaçınan, düşük gecikmeli mimari.
+> **Not:** Bu doküman, mekânsal veri dünyasına yeni adım atanlar için "her şeyi en ince ayrıntısına kadar" açıklamak üzere hazırlanmıştır.
 
 ---
 
-## 🏗️ Teknik Mimari
+## 📖 1. Nedir Bu Proje? (En Temel Seviye)
 
-Projenin kalbinde, veriyi veritabanından çekip protobuff veya JSON formatına dönüştüren optimize edilmiş bir pipe-line bulunur.
+Diyelim ki elinde bir harita var ve bu harita üzerinde binlerce bina, yol ve park yerini göstermek istiyorsun. Bu veriler normalde bir veritabanında (PostgreSQL) durur. Ancak tarayıcı (browser), veritabanındaki ham veriyi anlayamaz. 
 
-```mermaid
-graph TD
-    User([Kullanıcı / Map Client]) -->|HTTP GET Request| Controller[Spring Rest Controller]
-    Controller -->|Service Call| Service[Business Logic]
-    Service -->|SQL Query| DAO[PostGIS DAO]
-    DAO -->|ST_AsMVT / ST_AsGeoJSON| PostgreSQL[(PostgreSQL / PostGIS)]
-    PostgreSQL -->|Binary / JSON Stream| DAO
-    DAO -->|Response| User
-```
+**GeojsonServer** burada devreye girer:
+1.  Veritabanına gider.
+2.  Harita verilerini (koordinatları) alır.
+3.  Harita kütüphanelerinin (Google Maps, Leaflet, Mapbox) anlayacağı **GeoJSON** veya **MVT** formatına çevirir.
+4.  İnternet üzerinden bu veriyi yayınlar.
+
+Özetle: **Veritabanı ile Harita arasındaki köprüdür.**
 
 ---
 
-## 🛠️ Kurulum ve Başlatma
+## 🏗️ 2. Proje Yapısı (Dosya Dosya İnceleme)
 
-### 1. Veritabanı Hazırlığı
-PostgreSQL üzerinde PostGIS extension'ının aktif olduğundan emin olun:
+Proje, "Katmanlı Mimari" denilen profesyonel bir yapıyla kurulmuştur. Her dosyanın görevi bellidir:
+
+### 🚪 Controller (Kapı) - `GeojsonController.java`
+Dış dünyanın (tarayıcınızın) projeye girdiği kapıdır. 
+- Eğer tarayıcı `/geojson/getPoints` adresine giderse, bu dosya isteği karşılar ve "Hey Service, bana noktaları getir!" der.
+
+### 🍱 Service (Garson) - `GeojsonService.java`
+İş mantığının döndüğü yerdir. Controller'dan gelen emirleri alır, gerekirse düzenler ve Database katmanına iletir. 
+
+### 🍳 DAO (Aşçı) - `GeojsonDao.java`
+Veritabanına giren tek yer burasıdır. SQL sorgularını burada yazarız.
+- Örn: `SELECT * FROM egitim_nokta` sorgusunu burada çalıştırırız.
+
+---
+
+## 💾 3. Veritabanında Neler Var? (Spatial Data)
+
+Projeyle birlikte gelen `.backup` dosyaları aslında senin "harita verilerin"dir.
+
+1.  **egitim_nokta**: Şehirlerin, dükkanların veya ağaçların sadece X ve Y koordinatlarını (Enlem/Boylam) tutar.
+2.  **egitim_cizgi**: Yollar, nehirler veya boru hatları gibi "başlangıcı ve sonu olan" çizgileri tutar.
+3.  **egitim_poligon**: İl sınırları, binalar veya parklar gibi "kapalı alanları" tutar.
+4.  **poi**: (Point of Interest) Önemli noktaları tutar.
+
+---
+
+## 🧠 4. Sihirli SQL Fonksiyonları
+
+Bu projenin en "cool" tarafı, veriyi Java koduyla değil, direkt **veritabanı motoruyla** (PostGIS) çevirmesidir.
+
+### `ST_AsGeoJSON(geom)`
+Veritabanındaki karmaşık binary koordinat verisini alır ve şöyle bir yazıya çevirir:
+`{"type": "Point", "coordinates": [32.85, 39.92]}`
+
+### `ST_AsMVT`
+Binlerce veriyi sıkıştırıp "Vector Tile" dediğimiz küçük paketler haline getirir. Google Maps'te haritayı kaydırdıkça parça parça yüklenen o kareler işte budur!
+
+---
+
+## 🚀 5. Adım Adım Kurulum (Hiç Bilmeyenler İçin)
+
+### Adım 1: PostgreSQL ve PostGIS Kur
+Bilgisayarına PostgreSQL kurduktan sonra, query ekranına şunu yazmalısın:
 ```sql
 CREATE EXTENSION postgis;
 ```
-Ardından projedeki `.backup` dosyalarını (nokta, cizgi, poligon) `pg_restore` ile veritabanınıza yükleyebilirsiniz.
+Bu komut, veritabanına "harita okuma yeteneği" kazandırır.
 
-### 2. Konfigürasyon
-`src/main/resources/application.properties` dosyasını kendi veritabanı bilgilerinizle güncelleyin:
-```properties
-spring.datasource.url=jdbc:postgresql://localhost:5432/geo_db
-spring.datasource.username=postgres
-spring.datasource.password=şifreniz
-```
+### Adım 2: Verileri Yükle
+Projedeki `nokta.backup`, `cizgi.backup` dosyalarını PostgreSQL'de `Restore` diyerek içeri aktar.
 
-### 3. Çalıştırma
-Maven ile projeyi paketleyin ve çalıştırın:
-```bash
-mvn clean install
-mvn spring-boot:run
-```
+### Adım 3: Ayarları Yap
+`src/main/resources/application.properties` dosyasına git:
+- `url`: Veritabanı adın (Örn: `jdbc:postgresql://localhost:5432/haritadb`)
+- `username`: Veritabanı kullanıcı adın (Genelde `postgres`)
+- `password`: Şifren
 
----
-
-## 📡 API Dokümantasyonu
-
-### 🔹 GeoJSON Endpoints
-Tüm GeoJSON yanıtları `FeatureCollection` formatında döner.
-
-| Endpoint | Method | Açıklama |
-| :--- | :--- | :--- |
-| `/geojson/getPoints` | `GET` | Tüm nokta (POINT) verilerini döner. |
-| `/geojson/getLinestrings` | `GET` | Tüm çizgi (LINESTRING) verilerini döner. |
-| `/geojson/getPolygons` | `GET` | Tüm alan (POLYGON) verilerini döner. |
-| `/geojson/getPointPolygons` | `GET` | Parametre olarak verilen il içindeki noktaları filtreler. |
-
-**Örnek İstek (Spatial Join):**
-`GET /geojson/getPointPolygons?city=Ankara`
-
-### 🔹 MVT (Vector Tile) Endpoints
-Dinamik tile rendering için optimize edilmiştir.
-
-| Endpoint | Method | Açıklama |
-| :--- | :--- | :--- |
-| `/mvt/{z}/{x}/{y}.pbf` | `GET` | Mapbox tile formatında (PBF) veri döner. |
-
-**Kullanım:** MapLibre GL JS veya OpenLayers tile URL kısmına `http://localhost:8080/mvt/{z}/{x}/{y}.pbf?layername=poi` şeklinde ekleyebilirsiniz.
+### Adım 4: Çalıştır
+Projeye sağ tıkla ve `Run` de. Eğer her şey tamamsa, tarayıcına şu adresi yaz:
+`http://localhost:8080/geojson/getPoints`
+Ekranda koca bir JSON listesi görüyorsan başardın demektir! 🎉
 
 ---
 
-## 🧰 Teknoloji Stack
+## 📡 6. API Uç Noktaları (Özet Liste)
 
-- **Framework**: Spring Boot 2.3.3
-- **Language**: Java 11 (LTS)
-- **Database**: PostgreSQL + PostGIS
-- **Persistence**: Spring Data JDBC
-- **Format**: GeoJSON, Mapbox Vector Tiles (MVT)
-
----
-
-## 🎓 Eğitim ve Geliştirme
-
-Bu repo, "Mekânsal Veri Sunucusu Nasıl Yazılır?" sorusuna pratik bir cevaptır. Kod içerisinde:
-1.  **JDBC Template** ile temiz SQL yönetimi.
-2.  **Spring Boot REST** prensipleri.
-3.  **PostGIS Spatial SQL** fonksiyonlarının (`ST_Contains`, `ST_AsMVTGeom`) Java ile entegrasyonu.
-
-gibi konuları derinlemesine inceleyebilirsiniz.
+-   📍 **Noktalar**: `GET /geojson/getPoints`
+-   🛣️ **Yollar**: `GET /geojson/getLinestrings`
+-   🧱 **Alanlar**: `GET /geojson/getPolygons`
+-   🏙️ **Filtreleme**: `GET /geojson/getPointPolygons?city=Ankara`  
+    *(Bu komut: Ankara poligonunun içine giren tüm noktaları bulur!)*
+-   📦 **Hızlı Harita (MVT)**: `GET /mvt/{z}/{x}/{y}.pbf?layername=poi`
 
 ---
 
-## ✒️ Yazar
+## ✒️ Yazar ve Destek
 
 **Bahattin Yunus Çetin**  
-*IT Architect & GIS Developer*
+*GIS Mimarı & Yazılım Mühendisi*
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?style=flat&logo=linkedin)](https://www.linkedin.com/)
-[![GitHub](https://img.shields.io/badge/GitHub-Follow-black?style=flat&logo=github)](https://github.com/)
+Bu proje, mekânsal veri bilimini herkes için kolaylaştırmak amacıyla geliştirilmiştir. Herhangi bir sorunda GitHub üzerinden issue açabilirsin.
 
 ---
-
-> [!IMPORTANT]
-> Bu proje eğitim amaçlı geliştirilmiş olup, production ortamı için cache yönetimi (Redis vs.) ve güvenlik katmanı (Spring Security) eklenerek genişletilmeye müsaittir.
+> [!TIP]
+> **Öneri:** Verileri haritada görmek için [geojson.io](http://geojson.io) sitesine `/getPoints`'ten gelen cevabı yapıştırabilirsin!
